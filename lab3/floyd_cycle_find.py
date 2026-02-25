@@ -12,6 +12,8 @@ usual signals for functional graph cycle-finding:
 - linked list cycle, detect loop in pointers
 - large iteration count k <= 10^18 or some shit
 - pseudorandom problems
+
+floyd: run fast & slow until they eventually meet
 """
 
 def floyd_cycle_find(f: callable, s0):
