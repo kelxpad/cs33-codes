@@ -117,20 +117,13 @@ class PersistentAVLTree:
             self.versions.append(new_tree)
 
     def _bst_delete_leftmost(self, u: Node) -> tuple[Node, Node | None]:
-        # TODO: Properly make sure that the right subtree of the leftmost node is correctly handled
-        # Insight: The right subtree of the leftmost node is still to the left of the second leftmost node
-        # IMPORTANT: Decide whether rebalancing for every subtree is the right choice
-        assert u != None
-        if u.l == None:
-            ret = self._create_node(None, u, None)
-            subtree = None
-            if u.r != None:
-                subtree = self._create_node(u.r.l, u.r, u.r.r)
-            return ret, self._rebalance(subtree)
-        else:
-            node, subtree = self._bst_delete_leftmost(u.l)
-            return node, self._rebalance(self._create_node(subtree, u, u.r))
-    
+        assert u is not None
+        if u.l is None:
+            return u, u.r
+        node, new_left = self._bst_delete_leftmost(u.l)
+        new_u = self._create_node(new_left, u, u.r)
+        return node, self._rebalance(new_u)
+        
     def _bst_delete(self, u: Node, x: int):
         if u == None:
             return u
@@ -139,12 +132,10 @@ class PersistentAVLTree:
         elif u.value < x:
             return self._create_node(u.l, u, self.delete(x, u.r,True))
         else:
-            assert u.value == x
-            # TODO: Verify Correctness
-            if u.r != None:
-                new_u, new_u_r = self._bst_delete_leftmost(u.r)
-                new_u = self._create_node(u.l, new_u, new_u_r)
-                return new_u
+            if u.r is not None:
+                successor, new_right = self._bst_delete_leftmost(u.r)
+                new_root = self._create_node(u.l, successor, new_right)
+                return self._rebalance(new_root)
             else:
                 return u.l
 
