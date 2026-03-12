@@ -77,7 +77,7 @@ class EdmondsKarp:
             while v != s:
                 u = parent[v]
                 self.capacity[u][v] -= new_flow
-                self.capacity[v][u] += self.capacity[v].get(u, 0) + new_flow
+                self.capacity[v][u] = self.capacity[v].get(u, 0) + new_flow
                 v = u
         
         return flow
