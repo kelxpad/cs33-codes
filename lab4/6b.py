@@ -95,8 +95,6 @@ def place_traps(alleyways: str) -> str:
 
     def id(i, j):
         return i*c + j
-    
-    s = d = None
 
     for i in range(r):
         for j in range(c):
