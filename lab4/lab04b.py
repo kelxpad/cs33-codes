@@ -179,3 +179,8 @@ res4 = min_num_fortification_waves(
     5,
 )
 exp4 = 1
+
+assert res1 == exp1, f"{res1}"
+assert res2 == exp2, f"{res2}"
+assert res3 == exp3, f"{res3}"
+assert res4 == exp4, f"{res4}"
