@@ -33,7 +33,11 @@ class Kuhn:
         return res
     
     def get_pairs(self):
-        return [(u, self.match_l[u]) for u in range(self.n) if self.match_l[u] != -1]
+        pairs = []
+        for u in range(self.n):
+            if self.match_l[u] != -1:
+                pairs.append((u, self.match_l[u]))
+        return pairs
 
 def solve():
     n, m, k = map(int, input().split())
