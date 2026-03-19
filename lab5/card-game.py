@@ -2,6 +2,8 @@
 """
 authors note: apparently this is wrong?
 c = [1, 1, 2]
+how to handle mixed cases with multiple 1s?
+
 """
 
 
