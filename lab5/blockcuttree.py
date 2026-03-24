@@ -67,7 +67,7 @@ class BlockCutTree:
                 self.dfs(i, -1)
         
         # build block-cut tree
-        # nodes 0..n--1: original node
+        # nodes 0..n-1: original node
         # n..n+len(bccs)-1: BCC nodes
         total_nodes = self.n + len(self.bccs)
         bct_adj = [[] for _ in range(total_nodes)]
