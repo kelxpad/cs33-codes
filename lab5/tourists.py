@@ -1,4 +1,5 @@
-import bisect
+import heapq
+from collections import Counter
 import sys
 sys.setrecursionlimit(10**7)
 
@@ -232,13 +233,26 @@ def tourists():
             bcc_sets[i].add(u)
             bcc_sets[i].add(v)
     
-    # maintain sorted values
-    bcc_vals = []
+    bcc_heaps = []
+    bcc_freq = []
+
 
     for i, s in enumerate(bcc_sets):
-        arr = sorted(w[v] for v in s)
-        bcc_vals.append(arr)
-        bct_val[n+i] = arr[0]
+        heap = []
+        freq = Counter()
+
+        for v in s:
+            heapq.heappush(heap, w[v])
+            freq[w[v]] += 1
+        
+        bcc_heaps.append(heap)
+        bcc_freq.append(freq)
+
+        # clean min
+        while freq[heap[0]] == 0:
+            heapq.heappop(heap)
+
+        bct_val[n + i] = heap[0]
     
     hld = HLD(bct_adj, bct_val)
 
@@ -259,16 +273,22 @@ def tourists():
 
             for bcc_node in bct.node_to_bcc[a]:
                 idx = bcc_node - n
-                arr = bcc_vals[idx]
+                heap = bcc_heaps[idx]
+                freq = bcc_freq[idx]
 
                 # remove old
-                pos = bisect.bisect_left(arr, old)
-                arr.pop(pos)
+                freq[old] -= 1
 
-                # insert new
-                bisect.insort(arr, new_w)
+                # add new
+                heapq.heappush(heap, new_w)
+                freq[new_w] += 1
 
-                new_min = arr[0]
+                # clean heap top
+                while freq[heap[0]] == 0:
+                    heapq.heappop(heap)
+
+                new_min = heap[0]
+
                 hld.update(bcc_node, new_min)
 
 if __name__ == "__main__":
