@@ -4,6 +4,9 @@ we cant use kuhn's for this problem because hindi one-to-one yung mapping, it wo
 therefore, we can model this as a flow problem, edmonds-karp should do the trick
 
 source -> horse -> race -> jockey -> sink
+
+in rebuilding, detect flow using:
+backward edge capacity >= 0: flow was used
 """
 
 from collections import deque
@@ -83,41 +86,101 @@ def plan_races(m: int, k: int,
     y: Sequence[frozenset[int]]
     ) -> int | list[list[Participation]]:
     r = len(x) # races
+    slots_per_race = 8
+    total_slots = r * slots_per_race
 
     source = 0
     horse_start = 1
-    race_in_start = horse_start + m
-    race_out_start = race_in_start + r
-    jockey_start = race_out_start + r
+    slot_start = horse_start + m
+    jockey_start = slot_start + total_slots
     sink = jockey_start + k
 
     nodes = sink + 1
     ek = EdmondsKarp(nodes)
 
-    # sources -> horses
+    # map slot_id to race index
+    slot_to_race = [0] * total_slots
+
+    # store edes for reconstruction
+    horse_slot_edges = [[] for _ in range(total_slots)]
+    slot_jockey_edges = [[] for _ in range(total_slots)]
+
+    # source -> horses
     for horse in range(m):
         ek.add_edge(source, horse_start + horse, 5)
-    
-    # horses -> race_in
-    for race in range(r):
-        for horse in x[race]:
-            ek.add_edge(horse_start + horse, race_in_start + race, 8)
-    
-    # race_in -> race_out (capacity 8 per race)
-    for race in range(r):
-        ek.add_edge(race_in_start + race, race_out_start + race, 8)
 
-    # race_out -> jockeys
+    # build slots
+    slot_id = 0
     for race in range(r):
-        for jockey in y[race]:
-            ek.add_edge(race_out_start + race, jockey_start + jockey, 8)
+        for _ in range(slots_per_race):
+            slot_node = slot_start + slot_id
+            slot_to_race[slot_id] = race
+
+            # horse -> slot
+            for horse in x[race]:
+                idx = ek.add_edge(horse_start + horse, slot_node, 1)
+                horse_slot_edges[slot_id].append((horse, idx))
+
+            # slot -> jockey
+            for jockey in y[race]:
+                idx = ek.add_edge(slot_node, jockey_start + jockey, 1)
+                slot_jockey_edges[slot_id].append((jockey, idx))
+
+            slot_id += 1
     
-    # jockeys -> sink
+    # jockey -> sink
     for jockey in range(k):
         ek.add_edge(jockey_start + jockey, sink, 5)
+
+    # max flow
+    flow = ek.max_flow(source, sink)
+    print(flow)
+
+    # reconstruct
+    result = [[] for _ in range(r)]
+
+    for slot_id in range(total_slots):
+        race = slot_to_race[slot_id]
+
+        chosen_horse = -1
+        chosen_jockey = -1
+
+        # find horse used
+        for horse, idx in horse_slot_edges[slot_id]:
+            rev = ek.edges[idx][2]
+            if ek.edges[rev][1] > 0:
+                chosen_horse = horse
+                break
+        
+        # find jockey used
+        for jockey, idx in slot_jockey_edges[slot_id]:
+            rev = ek.edges[idx][2]
+            if ek.edges[rev][1] > 0:
+                chosen_jockey = jockey
+                break
+        
+        if chosen_horse != -1 and chosen_jockey != -1:
+            result[race].append(Participation(horse=chosen_horse, jockey=chosen_jockey))
     
-    # compute max flow
-    return ek.max_flow(source, sink)
+    return result
+
+def check(ans, m, k, x, y):
+    horse_cnt = [0] * m
+    jockey_cnt = [0] * k
+
+    for i, race in enumerate(ans):
+        assert len(race) <= 8
+
+        for p in race:
+            h, j = p.horse, p.jockey
+            assert h in x[i]
+            assert j in y[i]
+
+            horse_cnt[h] += 1
+            jockey_cnt[j] += 1
+    
+    assert all(c <= 5 for c in horse_cnt)
+    assert all(c <= 5 for c in jockey_cnt)
     
 res1 = plan_races(3, 3, (
     frozenset({0, 1}), 
@@ -126,5 +189,24 @@ res1 = plan_races(3, 3, (
     frozenset({0, 1}),
     frozenset({0, 2}),
 ))
-exp1 = [15] 
-assert res1 in exp1, f"{res1}"
+
+res2 = plan_races(4, 4, (
+    frozenset({0, 1}), 
+    frozenset({1, 2}),
+), (
+    frozenset({0, 1}),
+    frozenset({0, 2}),
+))
+
+check(res1, 3, 3,
+    (frozenset({0, 1}), frozenset({1, 2})),
+    (frozenset({0, 1}), frozenset({0, 2}))
+)
+# assert total_participations(res1) == 15
+
+check(res2, 4, 4,
+    (frozenset({0, 1}), frozenset({1, 2})),
+    (frozenset({0, 1}), frozenset({0, 2}))
+)
+
+print("warframe time")
