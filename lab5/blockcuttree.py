@@ -11,19 +11,21 @@ class BlockCutTree:
         # stack of edges (u, v)
         self.edge_stack = []
 
-        # results
+        # results 
         self.bccs = [] # list of list of edges
 
         self.bct_adj = []
 
-    def add_edge(self, u, v):
+        self.node_to_bcc = [[] for _ in range(self.n)]
+    
+    def add_edge(self, u: int, v: int) -> None:
         if u == v:
             self.bccs.append([(u, u)])
         else:
             self.adj[u].append(v)
             self.adj[v].append(u)
-
-    def dfs(self, u, parent):
+        
+    def dfs(self, u: int, parent: int) -> None:
         self.disc[u] = self.low[u] = self.time
         self.time += 1
 
@@ -31,7 +33,7 @@ class BlockCutTree:
             # self.loop
             if v == u:
                 continue
-
+            
             if self.disc[v] == -1:
                 # tree edge
                 self.edge_stack.append((u, v))
@@ -46,29 +48,30 @@ class BlockCutTree:
                     while True:
                         e = self.edge_stack.pop()
                         bcc.append(e)
-                        if e == (u, v) or e == (v, u):
+                        if e == (u,v) or e == (v,u):
                             break
                     self.bccs.append(bcc)
             
             elif v != parent and self.disc[v] < self.disc[u]:
-                # back edge (important: avoid duplicates)
+                # back edge, avoid duplicates
                 self.edge_stack.append((u, v))
                 self.low[u] = min(self.low[u], self.disc[v])
-
+    
     def build(self):
         """
         computes all BCCs and builds the BCT
-        rets adjacency list of the block-cut tree
+        returns adjacency list of the block-cut tree
         """
 
-        # find BCCs by running DFS on all comps
+        # find BCCs by running DFS on all components
         for i in range(self.n):
             if self.disc[i] == -1:
                 self.dfs(i, -1)
         
         # build block-cut tree
-        # nodes 0..n-1: original node
+        # nodes 0..n-1: original nodes
         # n..n+len(bccs)-1: BCC nodes
+
         total_nodes = self.n + len(self.bccs)
         bct_adj = [[] for _ in range(total_nodes)]
 
@@ -79,10 +82,11 @@ class BlockCutTree:
             for u, v in bcc:
                 vertices.add(u)
                 vertices.add(v)
-
+            
             for v in vertices:
                 bct_adj[v].append(bcc_node)
                 bct_adj[bcc_node].append(v)
+                self.node_to_bcc[v].append(bcc_node)
         
         self.bct_adj = bct_adj
         return bct_adj
