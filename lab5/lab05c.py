@@ -51,7 +51,7 @@ class Kuhn:
                 res += 1
         return res
     
-    def get_pairs(self):
+    def get_pairs(self) -> list[tuple[int, int]]:
         pairs = []
         for u in range(self.n):
             if self.match_l[u] != -1:
