@@ -90,54 +90,14 @@ def max_knights(marked: Sequence[Sequence[bool]]) -> int | list[Coord]:
                     kuhn.add_edge(u, id_r[(ni, nj)])
     
     matching = kuhn.max_matching()
+    free_cells = left + right
 
-    # find alternating reachable nodes
-    vis_l = [False] * left
-    vis_r = [False] * right
+    return free_cells - matching
 
-    def dfs_l(u):
-        if vis_l[u]:
-            return
-        vis_l[u] = True
-        for v in kuhn.adj[u]:
-            # follow UNMATCHED edges from l -> r
-            if kuhn.match_l[u] != v and not vis_r[v]:
-                dfs_r(v)
-    
-    def dfs_r(v):
-        if vis_r[v]:
-            return
-        vis_r[v] = True
-        # only follow MATCHED edges from r -> l
-        if kuhn.match_r[v] != -1:
-            dfs_l(kuhn.match_r[v])
-    
-    # start from unmatched left node
-    for u in range(left):
-        if kuhn.match_l[u] == -1:
-            dfs_l(u)
-    
-    # build independent set
-    result = []
+res1 = max_knights((
+    (False, False, False),
+    (False, False, False),
+))
+exp1 = 4
 
-    # reverse maps
-    rev_l = {v: k for k, v in id_l.items()}
-    rev_r = {v: k for k, v in id_r.items()}
-
-    # left: take visited
-    for u in range(left):
-        if vis_l[u]:
-            result.append(rev_l[u])
-
-    # right: take not visited
-    for v in range(right):
-        if not vis_r[v]:
-            result.append(rev_r[v])
-    
-    return result 
-
-# print(max_knights((
-#     (False, False, True),
-#     (True, False, False),
-# ))
-# )
+assert res1 == exp1, f"{res1}"
