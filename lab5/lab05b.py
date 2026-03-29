@@ -41,6 +41,7 @@ class Quarantiner:
 
         self.build()
         self.build_components()
+        self.build_lca()
         
         super().__init__()
 
@@ -108,28 +109,11 @@ class Quarantiner:
                     if self.comp_id[v] == -1:
                         self.comp_id[v] = cid
                         stack.append(v)
-                        size += v
+                        size += 1
             
             self.comp_size.append(size)
             cid += 1
-    
-    def separates(self, s: int, t: int, banned: int) -> bool:
-        if banned == s or banned == t:
-            return True
-        seen = [False] * self.n
-        seen[banned] = True
-        q = deque([s])
-        seen[s] = True
-
-        while q:
-            u = q.popleft()
-            for v in self.adj[u]:
-                if not seen[v]:
-                    seen[v] = True
-                    q.append(v)
-            
-        return not seen[t]
-    
+        
     def build(self):
         """
         computes all BCCs and builds the BCT
@@ -164,36 +148,78 @@ class Quarantiner:
         self.bct_adj =  bct_adj
         return bct_adj
 
+    def build_lca(self) -> None:
+        n = len(self.bct_adj)
+        self.log = (n).bit_length()
+        self.up = [[-1]*n for _ in range(self.log)]
+        self.depth = [-1]*n
+        self.art_pref = [0]*n
+
+        for i in range(n):
+            if self.depth[i] != -1:
+                continue
+            self.dfs_lca(i, -1)
+        
+        for k in range(1, self.log):
+            for v in range(n):
+                if self.up[k-1][v] != -1:
+                    self.up[k][v] = self.up[k-1][self.up[k-1][v]]
+    
+    def dfs_lca(self, u: int, p: int) -> None:
+        self.up[0][u] = p
+        self.depth[u] = 0 if p == -1 else self.depth[p] + 1
+
+        # count cut nodes
+        add = 1 if (u < self.n and self.is_art[u]) else 0
+        self.art_pref[u] = add if p == -1 else self.art_pref[p] + add
+
+        for v in self.bct_adj[u]:
+            if v == p:
+                continue
+            self.dfs_lca(v, u)
+        
+    def lca(self, u: int, v: int) -> int:
+        if self.depth[u] < self.depth[v]:
+            u, v = v, u
+
+        diff = self.depth[u] - self.depth[v]
+        for k in range(self.log):
+            if diff & (1 << k):
+                u = self.up[k][u]
+        
+        if u == v: return u
+
+        for k in reversed(range(self.log)):
+            if self.up[k][u] != self.up[k][v]:
+                u = self.up[k][u]
+                v = self.up[k][v]
+        
+        return self.up[0][u]
+
     def count_quarantinables(self, s: int, t: int) -> int | None:
         s -= 1; t -= 1
 
         if self.comp_id[s] != self.comp_id[t]:
             return None
+        
+        l = self.lca(s, t)
 
-        visited = [False] * len(self.bct_adj)
-        parent = [-1] * len(self.bct_adj)
+        # articulation points on path
+        bad = self.art_pref[s] + self.art_pref[t] - 2 * self.art_pref[l]
+        if l < self.n and self.is_art[l]:
+            bad += 1
+        
+        # endpoints bad, but avoid double counting
+        bad += 2
 
-        q = deque([s])
-        visited[s] = True
-
-        while q:
-            u = q.popleft()
-            for v in self.bct_adj[u]:
-                if not visited[v]:
-                    visited[v] = True
-                    parent[v] = u
-                    q.append(v)
-
-        if not visited[t]:
-            return None
-                
-        bad = 0
-        for x in range(self.n):
-            if self.separates(s, t, x):
-                bad += 1
+        if self.is_art[s]:
+            bad -= 1
+        
+        if self.is_art[t]:
+            bad -= 1
         
         return self.n - bad
-
+    
 q = Quarantiner(10, (
     (5, 6),
     (6, 7),
