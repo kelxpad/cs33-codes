@@ -1,24 +1,29 @@
+"""
+separate add_edge into add_left and add_right for 
+ensuring left -> right bipartite traversal
+"""
+
 from collections.abc import Sequence
 
 class Kuhn:
-    def __init__(self):
+    def __init__(self) -> None:
         self.adj = []
         self.match_l = []
         self.match_r = []
-
-    def add_left(self):
+    
+    def add_left(self) -> int:
         self.adj.append([])
         self.match_l.append(-1)
         return len(self.adj) - 1
-
-    def add_right(self):
+    
+    def add_right(self) -> int:
         self.match_r.append(-1)
         return len(self.match_r) - 1
-
-    def add_edge(self, u, v):
+    
+    def add_edge(self, u: int, v: int) -> None:
         self.adj[u].append(v)
 
-    def dfs(self, u, vis):
+    def dfs(self, u: int, vis: list[bool]) -> bool:
         if vis[u]:
             return False
         vis[u] = True
@@ -29,10 +34,9 @@ class Kuhn:
                 return True
         return False
 
-
 def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
     r, c = len(x), len(x[0])
-    moves = [(2,1),(2,-1),(-2,1),(-2,-1),(1,2),(1,-2),(-1,2),(-1,-2)]
+    moves = [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]
 
     # sort cells by cost
     cells = sorted((x[i][j], i, j) for i in range(r) for j in range(c))
@@ -46,11 +50,11 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
     matching = 0
     res = [-1] * (r * c)
 
-    ptr = 0  # how many answers filled
+    ptr = 0 # how many answers filled
 
     for cost, i, j in cells:
         active.add((i, j))
-
+        
         # add node
         if (i + j) % 2 == 0:
             u = kuhn.add_left()
@@ -61,12 +65,13 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
                 ni, nj = i + di, j + dj
                 if (ni, nj) in id_r:
                     kuhn.add_edge(u, id_r[(ni, nj)])
-
+            
             # try augment
             vis = [False] * len(kuhn.adj)
             if kuhn.dfs(u, vis):
                 matching += 1
-
+        
+        # but for right this time
         else:
             v = kuhn.add_right()
             id_r[(i, j)] = v
@@ -75,7 +80,7 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
                 ni, nj = i + di, j + dj
                 if (ni, nj) in id_l:
                     kuhn.add_edge(id_l[(ni, nj)], v)
-
+            
             # try to find augmenting path
             for u in range(len(kuhn.adj)):
                 if kuhn.match_l[u] == -1:
@@ -83,7 +88,7 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
                     if kuhn.dfs(u, vis):
                         matching += 1
                         break
-
+        
         # compute MIS
         total = len(active)
         mis = total - matching
@@ -99,3 +104,4 @@ print(immigrants_game((
     (3, 1, 4, 1),
     (5, 9, 2, 6),
 )))
+
