@@ -48,6 +48,9 @@ class Kuhn:
         return pairs
     
 def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
+    if not x or not x[0]:
+        return []
+
     r = len(x)
     c = len(x[0])
 

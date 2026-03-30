@@ -59,6 +59,9 @@ class Kuhn:
         return pairs
 
 def max_knights(marked: Sequence[Sequence[bool]]) -> int | list[Coord]:
+
+    if not marked or not marked[0]:
+        return []
     r, c = len(marked), len(marked[0])
     moves = [(2,1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]
     def in_bounds(i, j): return 0 <= i < r and 0 <= j < c
