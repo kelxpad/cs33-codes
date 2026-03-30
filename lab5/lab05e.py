@@ -8,12 +8,10 @@ source -> horse -> race -> jockey -> sink
 in rebuilding, detect flow using:
 backward edge capacity >= 0: flow was used
 """
-
 from collections import deque
 from collections.abc import Sequence
-from derby import Participation # pyright: ignore take out later after restarting vsc
+from derby import Participation, RaceTrack 
 
-inf = 10**18
 class EdmondsKarp:
     def __init__(self, n: int) -> None:
         self.n = n
@@ -26,7 +24,7 @@ class EdmondsKarp:
         bwd_idx = idx + 1
 
         self.edges.append([v, cap, bwd_idx])
-        self.edges.append([u, 0, fwd_idx]) # no flow yet, nothing to undo
+        self.edges.append([u, 0, fwd_idx])
 
         self.graph[u].append(fwd_idx)
         self.graph[v].append(bwd_idx)
@@ -34,10 +32,9 @@ class EdmondsKarp:
         return fwd_idx
 
     def bfs(self, s: int, t: int, parent: list[int]) -> int:
-        # find augmenting path and return its bottleneck cap else 0
-        parent[:] = [-1] * self.n # reset to find fresh augmenting path
+        parent[:] = [-1] * self.n
         parent[s] = -2
-        q = deque([(s, inf)])
+        q = deque([(s, 10**18)])
 
         while q:
             u, flow = q.popleft()
@@ -45,11 +42,10 @@ class EdmondsKarp:
             for idx in self.graph[u]:
                 v, cap, _ = self.edges[idx]
 
-                # traverse only edges with remaining capacity
                 if parent[v] == -1 and cap > 0:
                     parent[v] = idx
                     new_flow = min(flow, cap)
-                    
+
                     if v == t:
                         return new_flow
 
@@ -69,8 +65,7 @@ class EdmondsKarp:
             flow += new_flow
             v = t
 
-            # walk backward along augmenting path updating residual capacity
-            while v != s: # bfs modified parent, we use it
+            while v != s:
                 idx = parent[v]
                 rev = self.edges[idx][2]
 
@@ -81,90 +76,72 @@ class EdmondsKarp:
         
         return flow
 
+
 def plan_races(m: int, k: int, 
-    x: Sequence[frozenset[int]], 
-    y: Sequence[frozenset[int]]
-    ) -> int | list[list[Participation]]:
-    r = len(x) # races
-    slots_per_race = 8
-    total_slots = r * slots_per_race
+    tracks: Sequence[RaceTrack]
+) -> int | list[list[Participation]]:    
+
+    r = len(tracks)
 
     source = 0
     horse_start = 1
-    slot_start = horse_start + m
-    jockey_start = slot_start + total_slots
+    race_in_start = horse_start + m
+    race_out_start = race_in_start + r
+    jockey_start = race_out_start + r
     sink = jockey_start + k
 
     nodes = sink + 1
     ek = EdmondsKarp(nodes)
 
-    # map slot_id to race index
-    slot_to_race = [0] * total_slots
-
-    # store edes for reconstruction
-    horse_slot_edges = [[] for _ in range(total_slots)]
-    slot_jockey_edges = [[] for _ in range(total_slots)]
+    horse_edges = [[[] for _ in range(m)] for _ in range(r)]
+    jockey_edges = [[[] for _ in range(k)] for _ in range(r)]
 
     # source -> horses
     for horse in range(m):
         ek.add_edge(source, horse_start + horse, 5)
 
-    # build slots
-    slot_id = 0
+    # race_in -> race_out (capacity 8 per race)
     for race in range(r):
-        for _ in range(slots_per_race):
-            slot_node = slot_start + slot_id
-            slot_to_race[slot_id] = race
+        ek.add_edge(race_in_start + race, race_out_start + race, 8)
 
-            # horse -> slot
-            for horse in x[race]:
-                idx = ek.add_edge(horse_start + horse, slot_node, 1)
-                horse_slot_edges[slot_id].append((horse, idx))
+    # horse -> race_in
+    for race in range(r):
+        for horse in tracks[race].horses:
+            idx = ek.add_edge(horse_start + horse, race_in_start + race, 5)
+            horse_edges[race][horse].append(idx)
 
-            # slot -> jockey
-            for jockey in y[race]:
-                idx = ek.add_edge(slot_node, jockey_start + jockey, 1)
-                slot_jockey_edges[slot_id].append((jockey, idx))
+    # race_out -> jockey
+    for race in range(r):
+        for jockey in tracks[race].jockeys:
+            idx = ek.add_edge(race_out_start + race, jockey_start + jockey, 5)
+            jockey_edges[race][jockey].append(idx)
 
-            slot_id += 1
-    
     # jockey -> sink
     for jockey in range(k):
         ek.add_edge(jockey_start + jockey, sink, 5)
-
-    # max flow
+    
     flow = ek.max_flow(source, sink)
-    print(flow)
-
-    # reconstruct
+    # print(flow)
+    # reconstruction
     result = [[] for _ in range(r)]
 
-    for slot_id in range(total_slots):
-        race = slot_to_race[slot_id]
+    for race in range(r):
+        hs = []
+        js = []
 
-        chosen_horse = -1
-        chosen_jockey = -1
+        for horse in tracks[race].horses:
+            for idx in horse_edges[race][horse]:
+                hs.extend([horse] * (5 - ek.edges[idx][1]))
 
-        # find horse used
-        for horse, idx in horse_slot_edges[slot_id]:
-            rev = ek.edges[idx][2]
-            if ek.edges[rev][1] > 0:
-                chosen_horse = horse
-                break
-        
-        # find jockey used
-        for jockey, idx in slot_jockey_edges[slot_id]:
-            rev = ek.edges[idx][2]
-            if ek.edges[rev][1] > 0:
-                chosen_jockey = jockey
-                break
-        
-        if chosen_horse != -1 and chosen_jockey != -1:
-            result[race].append(Participation(horse=chosen_horse, jockey=chosen_jockey))
-    
+        for jockey in tracks[race].jockeys:
+            for idx in jockey_edges[race][jockey]:
+                js.extend([jockey] * (5 - ek.edges[idx][1]))
+
+        for horse, jockey in zip(hs, js):
+            result[race].append(Participation(horse=horse, jockey=jockey))
     return result
 
-def check(ans, m, k, x, y):
+def check(ans, m, k, tracks):
     horse_cnt = [0] * m
     jockey_cnt = [0] * k
 
@@ -173,9 +150,8 @@ def check(ans, m, k, x, y):
 
         for p in race:
             h, j = p.horse, p.jockey
-            assert h in x[i]
-            assert j in y[i]
-
+            assert h in tracks[i].horses
+            assert j in tracks[i].jockeys
             horse_cnt[h] += 1
             jockey_cnt[j] += 1
     
@@ -183,30 +159,25 @@ def check(ans, m, k, x, y):
     assert all(c <= 5 for c in jockey_cnt)
     
 res1 = plan_races(3, 3, (
-    frozenset({0, 1}), 
-    frozenset({1, 2}),
-), (
-    frozenset({0, 1}),
-    frozenset({0, 2}),
+    RaceTrack(horses=frozenset({0, 1}), jockeys=frozenset({0, 1})),
+    RaceTrack(horses=frozenset({1, 2}), jockeys=frozenset({0, 2})),
 ))
+
 
 res2 = plan_races(4, 4, (
-    frozenset({0, 1}), 
-    frozenset({1, 2}),
-), (
-    frozenset({0, 1}),
-    frozenset({0, 2}),
+    RaceTrack(horses=frozenset({0, 1}), jockeys=frozenset({0, 1})),
+    RaceTrack(horses=frozenset({1, 2}), jockeys=frozenset({0, 2})),
 ))
 
-check(res1, 3, 3,
-    (frozenset({0, 1}), frozenset({1, 2})),
-    (frozenset({0, 1}), frozenset({0, 2}))
-)
+
+check(res1, 3, 3, (
+    RaceTrack(horses=frozenset({0, 1}), jockeys=frozenset({0, 1})),
+    RaceTrack(horses=frozenset({1, 2}), jockeys=frozenset({0, 2})),
+))
+
 # assert total_participations(res1) == 15
 
-check(res2, 4, 4,
-    (frozenset({0, 1}), frozenset({1, 2})),
-    (frozenset({0, 1}), frozenset({0, 2}))
-)
-
-print("warframe time")
+check(res2, 4, 4, (
+    RaceTrack(horses=frozenset({0, 1}), jockeys=frozenset({0, 1})),
+    RaceTrack(horses=frozenset({1, 2}), jockeys=frozenset({0, 2})),
+))

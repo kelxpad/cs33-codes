@@ -8,7 +8,7 @@ source -> horse -> race -> jockey -> sink
 
 from collections import deque
 from collections.abc import Sequence
-from derby import Participation # pyright: ignore take out later after restarting vsc
+from derby import Participation, RaceTrack # pyright: ignore take out later after restarting vsc
 
 inf = 10**18
 class EdmondsKarp:
@@ -79,10 +79,10 @@ class EdmondsKarp:
         return flow
 
 def plan_races(m: int, k: int, 
-    x: Sequence[frozenset[int]], 
-    y: Sequence[frozenset[int]]
-    ) -> int | list[list[Participation]]:
-    r = len(x) # races
+    tracks: Sequence[RaceTrack]
+) -> int | list[list[Participation]]:    
+    if m == 0 or k == 0: return 0
+    r = len(tracks)
 
     source = 0
     horse_start = 1
@@ -100,7 +100,7 @@ def plan_races(m: int, k: int,
     
     # horses -> race_in
     for race in range(r):
-        for horse in x[race]:
+        for horse in tracks[race].horses:
             ek.add_edge(horse_start + horse, race_in_start + race, 8)
     
     # race_in -> race_out (capacity 8 per race)
@@ -109,7 +109,7 @@ def plan_races(m: int, k: int,
 
     # race_out -> jockeys
     for race in range(r):
-        for jockey in y[race]:
+        for jockey in tracks[race].jockeys:
             ek.add_edge(race_out_start + race, jockey_start + jockey, 8)
     
     # jockeys -> sink
@@ -117,14 +117,14 @@ def plan_races(m: int, k: int,
         ek.add_edge(jockey_start + jockey, sink, 5)
     
     # compute max flow
-    return ek.max_flow(source, sink)
+    flow = ek.max_flow(source, sink)
+    print(flow)
+    return flow
     
 res1 = plan_races(3, 3, (
-    frozenset({0, 1}), 
-    frozenset({1, 2}),
-), (
-    frozenset({0, 1}),
-    frozenset({0, 2}),
+    RaceTrack(horses=frozenset({0, 1}), jockeys=frozenset({0, 1})),
+    RaceTrack(horses=frozenset({1, 2}), jockeys=frozenset({0, 2})),
 ))
+
 exp1 = [15] 
 assert res1 in exp1, f"{res1}"
