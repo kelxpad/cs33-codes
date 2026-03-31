@@ -1,153 +1,123 @@
-/*
-this is the reductions problem, will digest later
-TODO: Put more comments about how the solution uses hey_ya significantly.
-*/
-#include "superstition.h"
+/* strategy: use hey_ya to do the following:
+- precompute all palindrome radii in O(n)
+- handle all substrings implicitly
+for each of the 5 bit-planes:
+-  we transform the string into a special binary string, 
+- call hey_ya on it,
+- then returns, for every possible cnter, the maximum palindrome length centered there
 
-#include <assert.h>
-#include <stdio.h>
+
+*/
+
+#include "superstition.h"
 #include <stdlib.h>
-#include <time.h>
 #include <string.h>
 
-
-#define VERIFY(b) do {\
-    bool _b = (b);\
-    fprintf(stderr, "verifying: " #b "\n");\
-    if (!_b) {\
-        fprintf(stderr, "verification failed!\n");\
-        exit(1);\
-    }\
-} while (0)
-
+// we store 5 arrays (one per bit of each character)
+// with each array being the result of hey_ya on the
+// transformed binary string
 typedef struct Pocoloco {
-    int n;
-    int **odd; // [5][n]
-    int **even; // [5][n]
+    int *radius[5]; // radius[b][i] = pal length centered at i for bit b
 } Pocoloco;
 
-char *build_binary(const char *s, int n, int bit) {
-    char *t = malloc(n + 1);
-    for (int i = 0; i < n; i++) {
-        t[i] = ((s[i] - 'a') >> bit & 1) ? '1' : '0';
+/*
+build the transformed string for a specific bit b from
+0 to 4.
+
+let the original string be s[0..n-1]
+
+1. convert to binary using bit b
+2. insert separators (#) to make the length 2n+1
+3. encode each symbol into 3 characters:
+# = 000
+0 = 010
+1 = 101
+
+so the final length = 3 * (2n+1) = 6n+3
+*/
+int *build(const char *s, int n, int b) {
+    int transformed_len = 6*n+3;
+    char *t = malloc(transformed_len + 1);
+
+    int j = 0; // ptr in transformed string
+
+    for (int i = 0; i < 2*n+1; i++, j += 3) {
+        if (i % 2 == 0) {
+            t[j]     = '0';
+            t[j + 1] = '0';
+            t[j + 2] = '0';
+        } else {
+            // this corresponds to a character from s
+            int idx = i / 2;
+
+            // extract bit b from s[idx]
+            int bit = ((s[idx] - 'a') >> b) & 1;
+
+            if (bit == 0) {
+                // encode 0 as 010
+                t[j]     = '0';
+                t[j + 1] = '1';
+                t[j + 2] = '0';
+            } else {
+                // encode 1 as 101
+                t[j]     = '1';
+                t[j + 1] = '0';
+                t[j + 2] = '1';
+            }
+        }
     }
-    t[n] = '\0';
-    return t;
+    t[transformed_len] = '\0';
+
+    // run hey_ya on the transformed string
+    int *result = hey_ya(t);
+
+    free(t);
+    return result;
 }
 
-char *build_even_transform(char *t, int n) {
-    char *res = malloc(2*n+2);
-    int idx = 0;
-    for (int i = 0; i < n; i++) {
-        res[idx++] = '#';
-        res[idx++] = t[i];
-    }
-    res[idx++] = '#';
-    res[idx] = '\0';
-    return res;
-}
-
+/*
+initialize the structure
+for each of the 5 bits, build a transformed string and
+store its hey_ya result.
+*/
 Pocoloco *init_p(const char *s) {
     int n = strlen(s);
 
     Pocoloco *p = malloc(sizeof(Pocoloco));
-    p->n = n;
-
-    p->odd = malloc(5 * sizeof(int*));
-    p->even = malloc(5 * sizeof(int*));
 
     for (int b = 0; b < 5; b++) {
-        char *t = build_binary(s, n, b);
-        
-        // odd
-        p->odd[b] = hey_ya(t);
-
-        // even
-        char *t2 = build_even_transform(t, n);
-        int *tmp = hey_ya(t2);
-
-        // map back to original indices
-        p->even[b] = malloc(n * sizeof(int));
-        for (int i = 0; i < n-1; i++) {
-            // center between i and i+1 so position 2*i+1
-            p->even[b][i] = tmp[2*i+2] / 2;
-        }
-        p->even[b][n-1] = 0; // no valid center
+        p->radius[b] = build(s, n, b);
     }
+
     return p;
 }
 
+/*
+check if substring s[i..j] is a palindrome
+
+map original indices into the transformed string
+the center of substring [i..j] becomes:
+
+center = 3*(i+j-1)+1
+
+required palindrome length:
+need = 3 * (2*(j-i+1) - 1)
+
+check for all 5 bits, if any fails, not a palindrome
+*/
 bool is_lucky_substring(const Pocoloco *p, int i, int j) {
-    i--; j--;
+    // compute center in transformed string
+    int center = 3 * (i+j-1) + 1;
 
-    int len = j - i + 1;
+    // required palindrome length
+    int length_needed = 3 * (2*(j-i+1)-1);
 
-    if (len <= 1) { return true; } // single char/empty strings are palindromes by default
-
-    if (len % 2 == 1) {
-        int mid = (i + j) / 2;
-        int need = (len + 1) / 2;
-
-        for (int b = 0; b < 5; b++) {
-            if (p->odd[b][mid] < need) {
-                return false;
-            }
-        }
-    } else {
-        int mid = (i + j) / 2;
-        int need = len / 2;
-
-        for (int b = 0; b < 5; b++) {
-            if (p->even[b][mid] < need) {
-                return false;
-            }
+    // check for all 5 bits
+    for (int b = 0; b < 5; b++) {
+        if (p->radius[b][center] < length_needed) {
+            return false;
         }
     }
+
     return true;
 }
-
-
-int *hey_ya(const char *t) {
-    if (!t) { return NULL; }
-
-    int n = strlen(t);
-    int *d = malloc(n * sizeof(int));
-    if (!d) { return NULL; }
-
-    int l = 0;
-    int r = -1;
-
-    for (int i = 0; i < n; i++) {
-        int k = 1;
-
-        if (i <= r) {
-            int mirror = l + r - i;
-            k = d[mirror] < (r - i + 1) ? d[mirror] : (r - i + 1);
-        }
-
-        while (i - k >= 0 && i + k < n && t[i - k] == t[i + k]) {
-            k++;
-        }
-
-        d[i] = k; // palindrome spans
-
-        if (i + k - 1 > r) {
-            l = i - k + 1;
-            r = i + k - 1;
-        }
-    }
-
-    return d;
-}
-
-int main() {
-    char *s = "abbaabbca";
-    Pocoloco *p = init_p(s);
-
-    VERIFY(is_lucky_substring(p, 1, 4));
-    VERIFY(!is_lucky_substring(p, 1, 5));
-    VERIFY(is_lucky_substring(p, 2, 7));
-    VERIFY(is_lucky_substring(p, 2, 2));
-    printf("%s", "All tests passed!\n");
-}
-
