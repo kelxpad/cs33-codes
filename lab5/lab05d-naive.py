@@ -1,9 +1,3 @@
-"""
-grid problem!!
-
-reuse reconstruction from 5c
-binary search per k
-"""
 from collections.abc import Sequence
 
 class Kuhn:
@@ -143,8 +137,3 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
             ptr += 1
 
     return res
-
-print(immigrants_game((
-    (3, 1, 4, 1),
-    (5, 9, 2, 6),
-)))

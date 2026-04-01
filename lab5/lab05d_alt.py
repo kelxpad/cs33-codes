@@ -125,9 +125,3 @@ def immigrants_game(x: Sequence[Sequence[int]]) -> list[int]:
         i = j
     
     return res
-
-print(immigrants_game((
-    (3, 1, 4, 1),
-    (5, 9, 2, 6),
-))
-)
